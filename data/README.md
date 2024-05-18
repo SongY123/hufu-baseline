@@ -1,5 +1,5 @@
 # 运行说明
-项目依赖Python3.7和PostGIS数据库。请确保你的系统中已经安装了Python3和PostGIS数据库。
+项目依赖Python3和PostGIS数据库。请确保你的系统中已经安装了Python3和PostGIS数据库。
 
 ## 使用docker启动PostGIS
 你可以使用Docker命令来拉取`kartoza/postgis`的镜像并启动。以下是具体的步骤：
