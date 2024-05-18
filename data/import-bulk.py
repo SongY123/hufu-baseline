@@ -9,8 +9,8 @@ username = 'hufu'
 password = 'hufu'
 dbname = 'osm_db'
 base_path = './'
-input_path = base_path + 'osm/osm_10_4'
-output_path = base_path + 'query/knn/osm_10_4'
+input_path = base_path + 'osm/osm_10_7'
+output_path = base_path + 'query/knn/osm_10_7'
 if_clean = True
 prefix = 'osm'
 

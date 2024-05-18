@@ -10,7 +10,7 @@ port = "54321"
 username = "hufu"
 password = "hufu"
 dbname = "osm_db"
-output_path = "./query/osm/osm_10_4"
+output_path = "./query/osm/osm_10_7"
 
 # 连接到数据库
 conn = psycopg2.connect(
@@ -30,7 +30,7 @@ global_view = "osm"
 queries = {
     "range_query": f"SELECT id FROM {global_view} WHERE location <-> ST_GeomFromText('POINT(114 22)', 4326) < 1",
     "range_counting": f"SELECT COUNT(*) cnt FROM {global_view} WHERE location <-> ST_GeomFromText('POINT(114 22)', 4326) < 1",
-    "knn": f"SELECT id FROM {global_view} ORDER BY location <-> ST_GeomFromText('POINT(114 22)', 4326) < 1 DESC LIMIT 5"
+    "knn": f"SELECT id FROM {global_view} ORDER BY location <-> ST_GeomFromText('POINT(114 22)', 4326) ASC LIMIT 5;"
 }
 
 if not os.path.exists(output_path):
