@@ -4,40 +4,39 @@ import math
 
 
 class RandomSet():
-    def __init__(self, input):
-        self.input = input
+    def __init__(self, data: list):
+        self.data = data
         self.EPS = 1.0
         self.RANDOM_SET_SCALE = 0.5
-        self.origin_size = len(self.input)
+        self.origin_size = len(self.data)
         self.random_size = math.ceil(self.origin_size * self.RANDOM_SET_SCALE + np.random.laplace(0, 1.0 / self.EPS))
         self.random_data = []
         self.sample_data = [int(np.random.laplace(0, 1.0 / self.EPS)), float(np.random.laplace(0, 1.0 / self.EPS)),
                             float(np.random.laplace(0, 1.0 / self.EPS))]
 
-    def remove_random_data(self, input):
-        output = []
-        for array in input:
-            if array not in self.random_data:
-                output.append(array)
-        return output
+    def update_data(self, new_data):
+        self.data = new_data
 
-    def generate_random_data(self, input):
-        output = input
-        if len(input) == 0:
+    def remove_random_data(self):
+        for array in reversed(self.data):
+            if array in self.random_data:
+                self.data.remove(array)
+
+    def generate_random_data(self):
+        if len(self.data) == 0:
             for i in range(self.random_size):
                 random_data = [int(np.random.laplace(0, 1.0 / self.EPS)), float(np.random.laplace(0, 1.0 / self.EPS)),
                                float(np.random.laplace(0, 1.0 / self.EPS))]
                 self.random_data.append(random_data)
-                output.append(random_data)
+                self.data.append(random_data)
         else:
             for i in range(self.random_size):
-                sample_input = input[i % len(input)]
+                sample_input = self.data[i % len(self.data)]
                 random_data = [sample_input[0] + int(np.random.laplace(0, 1.0 / self.EPS)),
                                sample_input[1] + float(np.random.laplace(0, 1.0 / self.EPS)),
                                sample_input[2] + float(np.random.laplace(0, 1.0 / self.EPS))]
-                output.append(random_data)
+                self.data.append(random_data)
                 self.random_data.append(random_data)
-        return output
 
 
 class Party():
@@ -71,55 +70,44 @@ class Party():
                 output.extend(local_data)
         return output
 
+    def process_data(self, recv_from, send_to):
+        recv_data = self.coms.recv(recv_from)
+        print("%d#recv data from %d: %s" % (self.client_id, recv_from, recv_data[1]))
+        self.random_set.update_data(recv_data[1])
+        self.random_set.remove_random_data()
+        self.coms.send(send_to, self.random_set.data)
+        print("%d#send data to %d: %s" % (self.client_id, send_to, self.random_set.data))
+
     def secret_union(self, input_path):
         local_data = self.read_from_local(input_path)
         if self.client_id != 0:
             self.random_set = RandomSet(local_data)
-            local_data = self.random_set.generate_random_data(local_data)
+            self.random_set.generate_random_data()
 
         if self.client_id == 0:
             union_data = self.coms.recv(self.n_clients - 1)
             print("%d#final union data %s" % (self.client_id, union_data[1]))
 
         elif self.client_id == 1:
-            self.coms.send((self.client_id + 1) % self.n_clients, local_data)
-            print("%d#send data to %d: %s" % (self.client_id, (self.client_id + 1) % self.n_clients, local_data))
-            recv_data = self.coms.recv(self.n_clients - 1)
-            print("%d#recv data from %d: %s" % (self.client_id, self.n_clients - 1, recv_data[1]))
-            clean_data = self.random_set.remove_random_data(recv_data[1])
-            self.coms.send((self.client_id + 1) % self.n_clients, clean_data)
-            print("%d#send data to %d: %s" % (self.client_id, (self.client_id + 1) % self.n_clients, clean_data))
+            self.coms.send((self.client_id + 1) % self.n_clients, self.random_set.data)
+            print("%d#send data to %d: %s" % (self.client_id, (self.client_id + 1) % self.n_clients, self.random_set.data))
+            self.process_data(self.n_clients - 1, (self.client_id + 1) % self.n_clients)
+
         elif self.client_id < self.n_clients - 1:
             recv_data = self.coms.recv(self.client_id - 1)
             print("%d#recv data from %d: %s" % (self.client_id, (self.client_id - 1) % self.n_clients, recv_data[1]))
-            mix_data = self.mix(local_data, recv_data[1])
+            mix_data = self.mix(self.random_set.data, recv_data[1])
             self.coms.send((self.client_id + 1) % self.n_clients, mix_data)
             print("%d#send data to %d: %s" % (self.client_id, (self.client_id + 1) % self.n_clients, mix_data))
-            recv_data = self.coms.recv(self.client_id - 1)
-            print("%d#recv data from %d: %s" % (self.client_id, (self.client_id - 1) % self.n_clients, recv_data[1]))
-            clean_data = self.random_set.remove_random_data(recv_data[1])
-            self.coms.send((self.client_id + 1) % self.n_clients, clean_data)
-            print("%d#send data to %d: %s" % (self.client_id, (self.client_id + 1) % self.n_clients, clean_data))
+            self.process_data(self.client_id - 1, (self.client_id + 1) % self.n_clients)
+
         else:
             recv_data = self.coms.recv(self.client_id - 1)
             print("%d#recv data from %d: %s" % (self.client_id, (self.client_id - 1) % self.n_clients, recv_data[1]))
-            mix_data = self.mix(local_data, recv_data[1])
+            mix_data = self.mix(self.random_set.data, recv_data[1])
             self.coms.send(1, mix_data)
             print("%d#send data to %d: %s" % (self.client_id, 1, mix_data))
-
-            recv_data = self.coms.recv(self.client_id - 1)
-            print("%d#recv data from %d: %s" % (self.client_id, (self.client_id - 1) % self.n_clients, recv_data[1]))
-            clean_data = self.random_set.remove_random_data(recv_data[1])
-            self.coms.send(0, clean_data)
-            print("%d#send data to %d: %s" % (self.client_id, 0, clean_data))
+            self.process_data(self.client_id - 1, 0)
 
     def clean(self):
         self.coms.clean()
-
-
-# random = RandomSet([[10, 1.1, 1.2], [2, 2.2, 2.3]])
-# print("origin data%s", [[10, 1.1, 1.2], [2, 2.2, 2.3]])
-# output = random.generate_random_data([[10, 1.1, 1.2], [2, 2.2, 2.3]])
-# print("with random data %s", output)
-# output = random.remove_random_data(output)
-# print("remove random data %s", output)

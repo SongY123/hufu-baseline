@@ -13,7 +13,7 @@ class ComSocket():
                 ip_list[i] = (ip, port)
         self.ip_list = ip_list
         self.socket = socket.socket()
-        self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.bind(('0.0.0.0', ip_list[client_id][1]))
         self.socket.listen()
         self.connections = {}

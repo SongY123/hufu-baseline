@@ -1,0 +1,139 @@
+{
+  "databases": [
+    {
+      "host": "localhost",
+      "port": 54321,
+      "username": "hufu",
+      "password": "hufu",
+      "database": "osm_db",
+      "schemas": [
+        {
+          "name": "osm_a_0",
+          "csv_path": "./osm/osm_10_9/1000000000_0.csv",
+          "columns": [
+            {
+              "name": "id",
+              "type": "int8",
+              "index": [
+                0
+              ]
+            },
+            {
+              "name": "location",
+              "type": "geometry",
+              "index": [
+                1,
+                2
+              ]
+            }
+          ]
+        },
+        {
+          "name": "osm_a_1",
+          "csv_path": "./osm/osm_10_9/1000000000_1.csv",
+          "columns": [
+            {
+              "name": "id",
+              "type": "int8",
+              "index": [
+                0
+              ]
+            },
+            {
+              "name": "location",
+              "type": "geometry",
+              "index": [
+                1,
+                2
+              ]
+            }
+          ]
+        },
+        {
+          "name": "osm_a_2",
+          "csv_path": "./osm/osm_10_9/1000000000_2.csv",
+          "columns": [
+            {
+              "name": "id",
+              "type": "int8",
+              "index": [
+                0
+              ]
+            },
+            {
+              "name": "location",
+              "type": "geometry",
+              "index": [
+                1,
+                2
+              ]
+            }
+          ]
+        },
+        {
+          "name": "osm_a_3",
+          "csv_path": "./osm/osm_10_9/1000000000_3.csv",
+          "columns": [
+            {
+              "name": "id",
+              "type": "int8",
+              "index": [
+                0
+              ]
+            },
+            {
+              "name": "location",
+              "type": "geometry",
+              "index": [
+                1,
+                2
+              ]
+            }
+          ]
+        },
+        {
+          "name": "osm_a_4",
+          "csv_path": "./osm/osm_10_9/1000000000_4.csv",
+          "columns": [
+            {
+              "name": "id",
+              "type": "int8",
+              "index": [
+                0
+              ]
+            },
+            {
+              "name": "location",
+              "type": "geometry",
+              "index": [
+                1,
+                2
+              ]
+            }
+          ]
+        },
+        {
+          "name": "osm_a_5",
+          "csv_path": "./osm/osm_10_9/1000000000_5.csv",
+          "columns": [
+            {
+              "name": "id",
+              "type": "int8",
+              "index": [
+                0
+              ]
+            },
+            {
+              "name": "location",
+              "type": "geometry",
+              "index": [
+                1,
+                2
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

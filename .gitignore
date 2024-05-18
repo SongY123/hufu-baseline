@@ -186,5 +186,10 @@ cython_debug/
 .idea/
 
 # dataset
-data/
+data/osm
+data/traffic
+
+# output
+output/
+
 # End of https://www.toptal.com/developers/gitignore/api/python,macos
