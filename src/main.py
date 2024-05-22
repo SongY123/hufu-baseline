@@ -1,254 +1,280 @@
-port = 9000
-protocol = 'shamir'
+import os
+import sys
+import shutil
+
+port = 11111
+protocol = 'mascot'
 host = 'localhost'
 n_clients = 4
-input_path = './Player-Data/Input'
-output_path = '../../output/OUTPUT'
-log_path = '../../output/logs'
-program_name = 'range_query'
-network_config = '../../config/range-query-network.txt'
+base_path = '../../'
 
-# program = 'range_counting'
-# program = 'knn'
+input_path = base_path + 'input/Player'
 
-# q_lng = 120.3737
-# q_lat = 14.61726
-q_lng = 0
-q_lat = 0
+output_path = base_path + 'output/Player'
+
+# program_name = 'range_query'
+# program_name = 'range_counting'
+program_name = 'knn'
+network_config = base_path + 'config/range-query-network.txt'
+data_length = 1
+
+q_lng = 114.181114
+q_lat = 22.3460861
+# q_lng = 0
+# q_lat = 0
+def write_data_to_player0():
+    with open(input_path + '0/Input-P0-0', 'w') as outfile:
+        outfile.write(str(q_lng) + ' ' + str(q_lat))
+
+write_data_to_player0()
+
 import subprocess, shlex
 from Compiler.compilerLib import Compiler
 from party import Party
 
 compiler = Compiler()
-compiler.parser.add_option("--volume", dest="volume")
+compiler.parser.add_option('--volume', dest='volume')
+compiler.parser.add_option('--radius', default=0,  dest='radius')
+compiler.parser.add_option('--k', default=0, dest='k')
 compiler.parse_args()
 
-# compiler.parser.add_option("-N", dest="nodes")
-# compiler.parse_args()
-# if compiler.options.nodes is None:
-#     compiler.parser.error("-N is required")
 
-if program_name == 'range_query':
-    @compiler.register_function('range_query')
-    def range_query():
-        from Compiler.library import print_ln, for_range, if_, print_ln_to, start_timer, stop_timer, get_program
-        from Compiler.types import sfix, sfix, cint, regint, Array, sint, Matrix
+@compiler.register_function('range_query')
+def range_query():
 
-        # 设置参与方数量和每方数据量, 0为查询方,1->silo为数据拥有方, radius为明文的查询半径
-        silo = 3
-        volume = int(compiler.options.volume)
-        radius = 3
+    from Compiler.types import sint, regint, Array, MemValue, sfix, cint
+    from Compiler.library import print_ln, print_ln_to, do_while, for_range, if_
 
-        distance = radius * radius
-        n = silo * volume
+    # 设置定点数精度
+    sfix.set_precision(32, 64)
 
-        # 设置定点数精度
-        sfix.set_precision(16, 32)
+    # 设置参与方数量和每方数据量, 0为查询方,1->silo为数据拥有方, radius为明文的查询半径
+    volume = int(compiler.options.volume)
 
-        # 创建输入数据数组
-        data_id = Matrix(silo, volume, sint)
-        data_lng = Matrix(silo, volume, sfix)
-        data_lat = Matrix(silo, volume, sfix)
+    radius = float(compiler.options.radius)
+    distance = radius * radius
 
-        # 查询方0输入查询数据
+    def main():
         q_lng = sfix.get_input_from(0)
         q_lat = sfix.get_input_from(0)
 
-        start_timer(1)
-
-        @for_range(silo)
-        def _(i):
-            for j in range(volume):
-                data_id[i][j] = sint.get_input_from(i + 1)
-                data_lng[i][j] = sfix.get_input_from(i + 1)
-                data_lat[i][j] = sfix.get_input_from(i + 1)
-                # print_ln('%s %s %s', data_id[i][j].reveal(), data_lng[i][j].reveal(), data_lat[i][j].reveal())
-
-        import math
-
-        @for_range(1, silo + 1)
-        def _(i):
-            for j in range(volume):
-                acc = sfix(0)
-                acc += (data_lng[i - 1][j] - q_lng).square()
-                acc += (data_lat[i - 1][j] - q_lat).square()
+        def game_loop(_=None):
+            def type_run():
+                id = sint.get_input_from(1)
+                lng = sfix.get_input_from(1)
+                lat = sfix.get_input_from(1)
+                acc = sint(0)
+                acc += (lng - q_lng).square()
+                acc += (lat - q_lat).square()
                 acc -= distance
-
                 inside = (acc < 0)
 
                 @if_(inside.reveal())
-                # 满足距离条件
                 def _():
-                    print_ln_to(i, '%s %s %s', data_id[i - 1][j].reveal_to(i), data_lng[i - 1][j].reveal_to(i),
-                                data_lat[i - 1][j].reveal_to(i))
+                    # print_ln("%s", id.reveal())
+                    # print_ln_to(1, "%s %s %s", id.reveal_to(1), lng.reveal_to(1), lat.reveal_to(1))
+                    print_ln_to(1, "%s", id.reveal_to(1))
 
-        stop_timer(1)
+            type_run()
+            return True
 
+        print('run %d volume' % volume)
+        for_range(volume)(game_loop)
 
-if program_name == 'range_counting':
-    @compiler.register_function('range_counting')
-    def range_counting():
-        # 设置参与方数量和每方数据量, 0为查询方,1->silo为数据拥有方, radius为明文的查询半径
-        silo = 3
-        volume = 3
-        radius = 6
-        distance = radius * radius
+    main()
 
-        n = silo * volume
+compiler.compile_func()
 
-        from Compiler.library import print_ln, for_range, if_, print_ln_to, start_timer, stop_timer
-        from Compiler.types import sfix, sfix, cint, regint, Array, sint, Matrix
-        # 设置定点数精度
-        sfix.set_precision(16, 32)
+@compiler.register_function('secret_sum')
+def secret_sum():
+    silo = n_clients
 
-        # 创建输入数据数组
-        data_id = Matrix(silo, volume, sint)
-        data_lng = Matrix(silo, volume, sfix)
-        data_lat = Matrix(silo, volume, sfix)
+    from Compiler.library import print_ln, for_range, if_, print_ln_to, start_timer, stop_timer
+    from Compiler.types import sfix, sfix, cint, regint, Array, sint, Matrix
+    # 设置定点数精度
+    start_timer(1)
 
-        # 查询方0输入查询数据
-        q_lng = sfix.get_input_from(0)
-        q_lat = sfix.get_input_from(0)
+    count = sint.Array(silo - 1)
+    @for_range(silo - 1)
+    def _(i):
+        count[i] = sint.get_input_from(i + 1)
 
-        @for_range(silo)
-        def _(i):
-            for j in range(volume):
-                data_id[i][j] = sint.get_input_from(i + 1)
-                data_lng[i][j] = sfix.get_input_from(i + 1)
-                data_lat[i][j] = sfix.get_input_from(i + 1)
+    # 输出结果
+    print_ln_to(0, "%s", sum(count[i] for i in range(silo - 1)).reveal_to(0))
+    stop_timer(1)
 
-        import math
+compiler.compile_func()
 
-        start_timer(1)
+@compiler.register_function('knn')
+def knn():
+    MAX_DISTANCE = 9999
+    # 设置参与方数量和每方数据量, 0为查询方,1->silo为数据拥有方, k为kNN的参数
+    silo = n_clients - 1
+    volume = int(compiler.options.volume)
+    k = int(compiler.options.k)
 
-        count = sint.Array(silo)
+    from Compiler.library import print_ln, for_range, if_, print_ln_to, start_timer, stop_timer
+    from Compiler.types import sfix, sfix, cint, regint, Array, sint, Matrix
+    # 设置定点数精度
+    sfix.set_precision(16, 32)
 
-        @for_range(silo)
-        def _(i):
-            local_count = cint(0)
-            for j in range(volume):
-                t = ((data_lng[i][j] - q_lng).square() + (data_lat[i][j] - q_lat).square() <= distance).if_else(1, 0)
+    # 创建输入数据数组
+    data_id = Matrix(silo, volume, sint)
+    data_lng = Matrix(silo, volume, sfix)
+    data_lat = Matrix(silo, volume, sfix)
+
+    # 查询方0输入查询数据
+    q_lng = sfix.get_input_from(0)
+    q_lat = sfix.get_input_from(0)
+
+    k_player_array = cint.Array(k)
+    k_id_array = sint.Array(k)
+    k_lng_array = sint.Array(k)
+    k_lat_array = sint.Array(k)
+
+    k_distance_array = sfix.Array(k)
+    k_distance_array.assign_all(MAX_DISTANCE)
+
+    @for_range(silo)
+    def _(i):
+        for j in range(volume):
+            data_id[i][j] = sint.get_input_from(i + 1)
+            data_lng[i][j] = sfix.get_input_from(i + 1)
+            data_lat[i][j] = sfix.get_input_from(i + 1)
+
+    import math
+    start_timer(1)
+    @for_range(silo)
+    def _(i):
+        for j in range(volume):
+            distance = (data_lng[i][j] - q_lng).square() + (data_lat[i][j] - q_lat).square()
+            max_k = cint(0)
+            for kk in range(1, k):
+                t = (k_distance_array[max_k] < k_distance_array[kk]).if_else(1, 0)
 
                 @if_(t.reveal() == 1)
                 def _():
-                    local_count.update(local_count + 1)
-            count[i] = local_count
+                    max_k.update(kk)
+            t = (distance < k_distance_array[max_k]).if_else(1, 0)
 
-        # 输出结果
-        print_ln_to(0, "%s", sum(count[i] for i in range(silo)).reveal_to(0))
-        stop_timer(1)
+            @if_(t.reveal() == 1)
+            def _():
+                k_player_array[max_k] = i
+                k_id_array[max_k] = data_id[i][j]
+                k_distance_array[max_k] = distance
+                k_lng_array[max_k] = data_lng[i][j]
+                k_lat_array[max_k] = data_lat[i][j]
 
+    # 输出结果
+    @for_range(k)
+    def _(i):
+        player_id = k_player_array[i] + 1
+        # print_ln_to(player_id, "%s %s %s", k_id_array[i].reveal_to(player_id),
+        #             k_lng_array[i].reveal_to(player_id), k_lat_array[i].reveal_to(player_id))
+        print_ln_to(player_id, "%s", k_id_array[i].reveal_to(player_id))
 
-if program_name == 'knn':
-    @compiler.register_function('knn')
-    def knn():
-        MAX_DISTANCE = 9999
-        # 设置参与方数量和每方数据量, 0为查询方,1->silo为数据拥有方, k为kNN的参数
-        silo = 3
-        volume = 3
-        k = 5
+    stop_timer(1)
 
-        from Compiler.library import print_ln, for_range, if_, print_ln_to, start_timer, stop_timer
-        from Compiler.types import sfix, sfix, cint, regint, Array, sint, Matrix
-        # 设置定点数精度
-        sfix.set_precision(16, 32)
-
-        # 创建输入数据数组
-        data_id = Matrix(silo, volume, sint)
-        data_lng = Matrix(silo, volume, sfix)
-        data_lat = Matrix(silo, volume, sfix)
-
-        # 查询方0输入查询数据
-        q_lng = sfix.get_input_from(0)
-        q_lat = sfix.get_input_from(0)
-
-        k_player_array = cint.Array(k)
-        k_id_array = sint.Array(k)
-        k_lng_array = sint.Array(k)
-        k_lat_array = sint.Array(k)
-
-        k_distance_array = sfix.Array(k)
-        k_distance_array.assign_all(MAX_DISTANCE)
-
-        @for_range(silo)
-        def _(i):
-            for j in range(volume):
-                data_id[i][j] = sint.get_input_from(i + 1)
-                data_lng[i][j] = sfix.get_input_from(i + 1)
-                data_lat[i][j] = sfix.get_input_from(i + 1)
-
-        import math
-        start_timer(1)
-        @for_range(silo)
-        def _(i):
-            for j in range(volume):
-                distance = (data_lng[i][j] - q_lng).square() + (data_lat[i][j] - q_lat).square()
-                max_k = cint(0)
-                for kk in range(1, k):
-                    t = (k_distance_array[max_k] < k_distance_array[kk]).if_else(1, 0)
-
-                    @if_(t.reveal() == 1)
-                    def _():
-                        max_k.update(kk)
-                t = (distance < k_distance_array[max_k]).if_else(1, 0)
-
-                @if_(t.reveal() == 1)
-                def _():
-                    k_player_array[max_k] = i
-                    k_id_array[max_k] = data_id[i][j]
-                    k_distance_array[max_k] = distance
-                    k_lng_array[max_k] = data_lng[i][j]
-                    k_lat_array[max_k] = data_lat[i][j]
-
-        # 输出结果
-        @for_range(k)
-        def _(i):
-            player_id = k_player_array[i] + 1
-            print_ln_to(player_id, "%s %s %s", k_id_array[i].reveal_to(player_id),
-                        k_lng_array[i].reveal_to(player_id), k_lat_array[i].reveal_to(player_id))
-
-        stop_timer(1)
-
+compiler.compile_func()
 
 import threading
 
 
-def write_data_to_player0():
-    with open(input_path + '-P0-0', 'w') as outfile:
-        outfile.write(str(q_lng) + ' ' + str(q_lat))
-
-
-def start_party_node(i, network_config, n_clients, input_file, log_file):
-    node = Party(network_config, i, n_clients=n_clients)
+def start_party_node(i, network_config, n_clients, input_file, data_length, log_file=None):
+    node = Party(network_config, i, n_clients=n_clients, data_length=data_length)
     node.secret_union(input_file)
     node.clean()
     # with open(log_file, 'a') as outfile:
     #     print("Node {} started".format(i), file=outfile)
 
 
-def main():
-    write_data_to_player0()
-
-    compiler.compile_func()
-
+def main(program_name=None):
+    if program_name == 'range_counting' or program_name == 'range_query':
+        program = 'range_query'
+    elif program_name == 'knn':
+        program = 'knn'
     cmd_str = '{}/{}-party.x -N {} -p {} -h {} -pn {} -IF {} -OF {} {} -v'
-    log_str = '{}/LOG-P{}.log'
     process_pool = []
-    for i in range(n_clients):
-        cmd = cmd_str.format('.', protocol, n_clients, i, host,
-                             port, input_path, output_path, program_name)
-        print(cmd)
-        with open(log_str.format(log_path, i), 'w') as outfile:
-            cmd_i = shlex.split(cmd)
-            process_pool.append(subprocess.Popen(cmd_i, stdout=outfile, stderr=outfile))
+    if program_name == 'knn':
+        for i in range(2, n_clients):
+            shutil.copy2(input_path + str(i) + os.sep + 'Input-P1-0', input_path + str(i) + os.sep + 'Input-P' + str(i) + '-0')
+        for i in range(n_clients):
+            player_input_path = input_path + str(i) + os.sep + 'Input'
+            player_output_path = output_path + str(i) + os.sep + 'Output'
+
+
+            cmd = cmd_str.format(base_path + 'dependency/MP-SPDZ', protocol, n_clients, i, host,
+                           port, player_input_path, player_output_path, program)
+
+            print(cmd)
+            with open(output_path + str(i) + os.sep + 'Log-P' + str(i) + '.log', 'w') as outfile:
+                cmd_i = shlex.split(cmd)
+                process_pool.append(subprocess.Popen(cmd_i, stdout=outfile, stderr=outfile))
+    else:
+        for i in range(1, n_clients):
+            player0_input_path = input_path + str(0) + os.sep + 'Input'
+            player1_input_path = input_path + str(i) + os.sep + 'Input'
+            player0_output_path = output_path + str(0) + os.sep + 'Output'
+            player1_output_path = output_path + str(i) + os.sep + 'Output'
+            cmd = cmd_str.format(base_path + 'dependency/MP-SPDZ', protocol, 2, 0, host,
+                           port + i + i, player0_input_path, player0_output_path, program)
+            print(cmd)
+            player0_log_path = output_path + str(0) + os.sep + 'Log-P0-' + str(i) + '.log'
+            player1_log_path = output_path + str(i) + os.sep + 'Log-P' + str(i) + '.log'
+
+            with open(player0_log_path, 'w') as outfile:
+                cmd_i = shlex.split(cmd)
+                process_pool.append(subprocess.Popen(cmd_i, stdout=outfile, stderr=outfile))
+
+            cmd = cmd_str.format(base_path + 'dependency/MP-SPDZ', protocol, 2, 1, host,
+                           port + i + i, player1_input_path, player1_output_path, program)
+
+            print(cmd)
+            with open(player1_log_path, 'w') as outfile:
+                cmd_i = shlex.split(cmd)
+                process_pool.append(subprocess.Popen(cmd_i, stdout=outfile, stderr=outfile))
 
     for i in range(n_clients):
         process_pool[i].wait()
 
-    for i in range(n_clients):
-        threading.Thread(target=start_party_node, args=(
-        i, network_config, n_clients, output_path + '-P' + str(i) + '-0', log_str.format(log_path, i))).start()
+    if program_name == 'range_counting':
+        # rewrite result to player
+        for i in range(n_clients):
+            if i == 0:
+                origin_output = output_path + str(i) + os.sep + 'Output-P0-0'
+            else:
+                origin_output = output_path + str(i) + os.sep + 'Output-P1-0'
+            new_input = output_path + str(i) + os.sep + 'Input'
+            new_output = output_path + str(i) + os.sep + 'New-Output'
+            new_log_path = output_path + str(i) + os.sep + 'NEWLog-P' + str(i) + '.log'
+            with open(origin_output, 'r') as src_file:
+                lines = src_file.readlines()
+
+            line_count = len(lines)
+
+            with open(new_input + '-P' + str(i) + '-0', 'w') as dst_file:
+                dst_file.write(str(line_count))
+
+            cmd = cmd_str.format(base_path + 'dependency/MP-SPDZ', protocol, n_clients, i, host,
+                                 port, new_input, new_output, 'secret_sum')
+            print(cmd)
+
+            with open(new_log_path, 'w') as outfile:
+                cmd_i = shlex.split(cmd)
+                process_pool.append(subprocess.Popen(cmd_i, stdout=outfile, stderr=outfile))
+
+    else :
+        for i in range(n_clients):
+            if program_name == 'knn':
+                output_file = output_path + str(i) + os.sep + 'Output-P' + str(i) + '-0'
+            else:
+                if i == 0:
+                    output_file = output_path + str(i) + os.sep + 'Output-P' + str(0) + '-0'
+                else:
+                    output_file = output_path + str(i) + os.sep + 'Output-P' + str(1) + '-0'
+            threading.Thread(target=start_party_node, args=(
+            i, network_config, n_clients, output_file, data_length)).start()
 
 
 if __name__ == '__main__':
-    main()
+    main(program_name)

@@ -189,7 +189,8 @@ cython_debug/
 data/osm
 data/traffic
 
+# input
+input/
+
 # output
 output/
-
-# End of https://www.toptal.com/developers/gitignore/api/python,macos
