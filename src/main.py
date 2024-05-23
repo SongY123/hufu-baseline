@@ -4,7 +4,8 @@ from datetime import datetime
 import logging
 
 port = 11111
-protocol = 'shamir'
+# protocol = 'shamir'
+protocol = 'semi-ecdsa'
 host = 'localhost'
 n_clients = 4
 base_path = '../../'
@@ -21,9 +22,9 @@ input_path = base_path + 'input/Player'
 
 output_path = base_path + 'output/Player'
 
-# program_name = 'range_query'
+program_name = 'range_query'
 # program_name = 'range_counting'
-program_name = 'knn'
+# program_name = 'knn'
 network_config = base_path + 'config/range-query-network.txt'
 data_length = 1
 
