@@ -1,8 +1,9 @@
 from comsocket import ComSocket
 import numpy as np
 import math
+import logging
 
-
+logger = logging.getLogger(__name__)
 class RandomSet():
     def __init__(self, data: list, data_length=3):
         self.data = data
@@ -70,7 +71,7 @@ class Party():
                     data.append([int(splits[0]), float(splits[1]), float(splits[2])])
                 else:
                     raise ValueError("Data length mismatched! Should be 1 or 3.")
-        print("%d#local data %s\n" % (self.client_id, data))
+        logger.debug("%d#local data %s" % (self.client_id, data))
         return data
 
     def mix(self, local_data: list, recv_data):
@@ -90,11 +91,11 @@ class Party():
 
     def process_data(self, recv_from, send_to):
         recv_data = self.coms.recv(recv_from)
-        print("%d#recv data from %d: %s" % (self.client_id, recv_from, recv_data[1]))
+        logger.debug("%d#recv data from %d: %s" % (self.client_id, recv_from, recv_data[1]))
         self.random_set.update_data(recv_data[1])
         self.random_set.remove_random_data()
         self.coms.send(send_to, self.random_set.data)
-        print("%d#send data to %d: %s" % (self.client_id, send_to, self.random_set.data))
+        logger.debug("%d#send data to %d: %s" % (self.client_id, send_to, self.random_set.data))
 
     def secret_union(self, input_path):
         local_data = self.read_from_local(input_path)
@@ -104,28 +105,28 @@ class Party():
 
         if self.client_id == 0:
             union_data = self.coms.recv(self.n_clients - 1)
-            print("%d#final union data %s" % (self.client_id, union_data[1]))
+            logger.info("%d#final union data %s" % (self.client_id, union_data[1]))
 
         elif self.client_id == 1:
             self.coms.send((self.client_id + 1) % self.n_clients, self.random_set.data)
-            print("%d#send data to %d: %s" % (
+            logger.debug("%d#send data to %d: %s" % (
                 self.client_id, (self.client_id + 1) % self.n_clients, self.random_set.data))
             self.process_data(self.n_clients - 1, (self.client_id + 1) % self.n_clients)
 
         elif self.client_id < self.n_clients - 1:
             recv_data = self.coms.recv(self.client_id - 1)
-            print("%d#recv data from %d: %s" % (self.client_id, (self.client_id - 1) % self.n_clients, recv_data[1]))
+            logger.debug("%d#recv data from %d: %s" % (self.client_id, (self.client_id - 1) % self.n_clients, recv_data[1]))
             mix_data = self.mix(self.random_set.data, recv_data[1])
             self.coms.send((self.client_id + 1) % self.n_clients, mix_data)
-            print("%d#send data to %d: %s" % (self.client_id, (self.client_id + 1) % self.n_clients, mix_data))
+            logger.debug("%d#send data to %d: %s" % (self.client_id, (self.client_id + 1) % self.n_clients, mix_data))
             self.process_data(self.client_id - 1, (self.client_id + 1) % self.n_clients)
 
         else:
             recv_data = self.coms.recv(self.client_id - 1)
-            print("%d#recv data from %d: %s" % (self.client_id, (self.client_id - 1) % self.n_clients, recv_data[1]))
+            logger.debug("%d#recv data from %d: %s" % (self.client_id, (self.client_id - 1) % self.n_clients, recv_data[1]))
             mix_data = self.mix(self.random_set.data, recv_data[1])
             self.coms.send(1, mix_data)
-            print("%d#send data to %d: %s" % (self.client_id, 1, mix_data))
+            logger.debug("%d#send data to %d: %s" % (self.client_id, 1, mix_data))
             self.process_data(self.client_id - 1, 0)
 
     def clean(self):

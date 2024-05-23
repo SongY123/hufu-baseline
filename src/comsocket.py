@@ -1,5 +1,8 @@
 import pickle, struct, socket
 import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ComSocket():
     def __init__(self, config_file: str, client_id: int):
@@ -26,7 +29,7 @@ class ComSocket():
                     s.connect(ip_list[i])
                     self.send(s, client_id)
                     self.connections[i] = s
-                    print("%d#connect to client %d success\n" % (client_id, i))
+                    logger.debug("%d#connect to client %d success" % (client_id, i))
                     break
                 except Exception as e:
                     time.sleep(0.01)
@@ -35,7 +38,7 @@ class ComSocket():
             conn, addr = self.socket.accept()
             _, cid = self.recv(conn)
             self.connections[cid] = conn
-            print("%d#client %d connected\n" % (client_id, i))
+            logger.debug("%d#client %d connected" % (client_id, i))
     
     def send(self, conn, message):
         if type(conn) == int:

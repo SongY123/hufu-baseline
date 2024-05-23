@@ -1,12 +1,21 @@
 import os
-import sys
 import shutil
+from datetime import datetime
+import logging
 
 port = 11111
 protocol = 'shamir'
 host = 'localhost'
 n_clients = 4
 base_path = '../../'
+
+fh = logging.FileHandler(base_path + 'main.log')
+ch = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+fh.setFormatter(formatter)
+ch.setFormatter(formatter)
+logging.basicConfig(level=logging.DEBUG, handlers=[fh, ch])
+logger = logging.getLogger(__name__)
 
 input_path = base_path + 'input/Player'
 
@@ -72,13 +81,15 @@ def range_query():
                 @if_(inside.reveal())
                 def _():
                     # print_ln("%s", id.reveal())
-                    # print_ln_to(1, "%s %s %s", id.reveal_to(1), lng.reveal_to(1), lat.reveal_to(1))
-                    print_ln_to(1, "%s", id.reveal_to(1))
+                    if data_length == 3:
+                        print_ln_to(1, "%s %s %s", id.reveal_to(1), lng.reveal_to(1), lat.reveal_to(1))
+                    else:
+                        print_ln_to(1, "%s", id.reveal_to(1))
 
             type_run()
             return True
 
-        print('run %d volume' % volume)
+        logger.info('run %d volume' % volume)
         for_range(volume)(game_loop)
 
     main()
@@ -159,15 +170,17 @@ def knn():
             type_run()
             return True
 
-        print('run %d volume' % volume)
+        logger.info('run %d volume' % volume)
         for_range(volume)(game_loop)
 
         @for_range(k)
         def _(i):
             player_id = k_player_array[i] + 1
-            # print_ln_to(player_id, "%s %s %s", k_id_array[i].reveal_to(player_id),
-            #             k_lng_array[i].reveal_to(player_id), k_lat_array[i].reveal_to(player_id))
-            print_ln_to(player_id, "%s", k_id_array[i].reveal_to(player_id))
+            if data_length == 3:
+                print_ln_to(player_id, "%s %s %s", k_id_array[i].reveal_to(player_id),
+                            k_lng_array[i].reveal_to(player_id), k_lat_array[i].reveal_to(player_id))
+            else:
+                print_ln_to(player_id, "%s", k_id_array[i].reveal_to(player_id))
 
     start_timer(1)
     main()
@@ -185,6 +198,15 @@ def start_party_node(i, network_config, n_clients, input_file, data_length, log_
     # with open(log_file, 'a') as outfile:
     #     print("Node {} started".format(i), file=outfile)
 
+def union_worker(i):
+    if program_name == 'knn':
+        output_file = output_path + str(i) + os.sep + 'Output-P' + str(i) + '-0'
+    else:
+        if i == 0:
+            output_file = output_path + str(i) + os.sep + 'Output-P' + str(0) + '-0'
+        else:
+            output_file = output_path + str(i) + os.sep + 'Output-P' + str(1) + '-0'
+    start_party_node(i, network_config, n_clients, output_file, data_length)
 
 def main(program_name=None):
     if program_name == 'range_counting' or program_name == 'range_query':
@@ -204,7 +226,7 @@ def main(program_name=None):
             cmd = cmd_str.format(base_path + 'dependency/MP-SPDZ', protocol, n_clients, i, host,
                            port, player_input_path, player_output_path, program)
 
-            print(cmd)
+            logger.info(cmd)
             with open(output_path + str(i) + os.sep + 'Log-P' + str(i) + '.log', 'w') as outfile:
                 cmd_i = shlex.split(cmd)
                 process_pool.append(subprocess.Popen(cmd_i, stdout=outfile, stderr=outfile))
@@ -216,7 +238,7 @@ def main(program_name=None):
             player1_output_path = output_path + str(i) + os.sep + 'Output'
             cmd = cmd_str.format(base_path + 'dependency/MP-SPDZ', protocol, 2, 0, host,
                            port + i + i, player0_input_path, player0_output_path, program)
-            print(cmd)
+            logger.info(cmd)
             player0_log_path = output_path + str(0) + os.sep + 'Log-P0-' + str(i) + '.log'
             player1_log_path = output_path + str(i) + os.sep + 'Log-P' + str(i) + '.log'
 
@@ -227,7 +249,7 @@ def main(program_name=None):
             cmd = cmd_str.format(base_path + 'dependency/MP-SPDZ', protocol, 2, 1, host,
                            port + i + i, player1_input_path, player1_output_path, program)
 
-            print(cmd)
+            logger.info(cmd)
             with open(player1_log_path, 'w') as outfile:
                 cmd_i = shlex.split(cmd)
                 process_pool.append(subprocess.Popen(cmd_i, stdout=outfile, stderr=outfile))
@@ -255,24 +277,31 @@ def main(program_name=None):
 
             cmd = cmd_str.format(base_path + 'dependency/MP-SPDZ', protocol, n_clients, i, host,
                                  port, new_input, new_output, 'secret_sum')
-            print(cmd)
+            logger.info(cmd)
 
             with open(new_log_path, 'w') as outfile:
                 cmd_i = shlex.split(cmd)
                 process_pool.append(subprocess.Popen(cmd_i, stdout=outfile, stderr=outfile))
 
-    else :
+    else:
+        union_process_pool = []
         for i in range(n_clients):
-            if program_name == 'knn':
-                output_file = output_path + str(i) + os.sep + 'Output-P' + str(i) + '-0'
-            else:
-                if i == 0:
-                    output_file = output_path + str(i) + os.sep + 'Output-P' + str(0) + '-0'
-                else:
-                    output_file = output_path + str(i) + os.sep + 'Output-P' + str(1) + '-0'
-            threading.Thread(target=start_party_node, args=(
-            i, network_config, n_clients, output_file, data_length)).start()
+            t = threading.Thread(target=union_worker, args=(i,))
+            t.start()
+            union_process_pool.append(t)
+
+        for t in union_process_pool:
+            t.join()
 
 
 if __name__ == '__main__':
+    start_time = datetime.now()
+
     main(program_name)
+
+    end_time = datetime.now()
+    execution_time = end_time - start_time
+    milliseconds = int(execution_time.microseconds / 1000)
+    seconds = round(execution_time.microseconds / 1000000, 2)
+
+    logger.info(f"Execution time: Seconds {seconds}s, Milliseconds {milliseconds} ms")
