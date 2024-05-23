@@ -3,7 +3,7 @@ import sys
 import shutil
 
 port = 11111
-protocol = 'mascot'
+protocol = 'shamir'
 host = 'localhost'
 n_clients = 4
 base_path = '../../'
@@ -118,61 +118,59 @@ def knn():
     # 设置定点数精度
     sfix.set_precision(16, 32)
 
-    # 创建输入数据数组
-    data_id = Matrix(silo, volume, sint)
-    data_lng = Matrix(silo, volume, sfix)
-    data_lat = Matrix(silo, volume, sfix)
+    def main():
+        # 查询方0输入查询数据
+        q_lng = sfix.get_input_from(0)
+        q_lat = sfix.get_input_from(0)
+        k_player_array = cint.Array(k)
+        k_id_array = sint.Array(k)
+        k_lng_array = sint.Array(k)
+        k_lat_array = sint.Array(k)
 
-    # 查询方0输入查询数据
-    q_lng = sfix.get_input_from(0)
-    q_lat = sfix.get_input_from(0)
+        k_distance_array = sfix.Array(k)
+        k_distance_array.assign_all(MAX_DISTANCE)
 
-    k_player_array = cint.Array(k)
-    k_id_array = sint.Array(k)
-    k_lng_array = sint.Array(k)
-    k_lat_array = sint.Array(k)
+        import math
 
-    k_distance_array = sfix.Array(k)
-    k_distance_array.assign_all(MAX_DISTANCE)
+        def game_loop(_=None):
+            def type_run():
+                @for_range(silo - 1)
+                def _(i):
+                    id = sint.get_input_from(i + 1)
+                    lng = sfix.get_input_from(i + 1)
+                    lat = sfix.get_input_from(i + 1)
+                    distance = (lng - q_lng).square() + (lat - q_lat).square()
+                    max_k = cint(0)
+                    for kk in range(1, k):
+                        t = (k_distance_array[max_k] < k_distance_array[kk]).if_else(1, 0)
 
-    @for_range(silo)
-    def _(i):
-        for j in range(volume):
-            data_id[i][j] = sint.get_input_from(i + 1)
-            data_lng[i][j] = sfix.get_input_from(i + 1)
-            data_lat[i][j] = sfix.get_input_from(i + 1)
+                        @if_(t.reveal() == 1)
+                        def _():
+                            max_k.update(kk)
+                    t = (distance < k_distance_array[max_k]).if_else(1, 0)
 
-    import math
+                    @if_(t.reveal() == 1)
+                    def _():
+                        k_player_array[max_k] = i
+                        k_id_array[max_k] = id
+                        k_distance_array[max_k] = distance
+                        k_lng_array[max_k] = lng
+                        k_lat_array[max_k] = lat
+            type_run()
+            return True
+
+        print('run %d volume' % volume)
+        for_range(volume)(game_loop)
+
+        @for_range(k)
+        def _(i):
+            player_id = k_player_array[i] + 1
+            # print_ln_to(player_id, "%s %s %s", k_id_array[i].reveal_to(player_id),
+            #             k_lng_array[i].reveal_to(player_id), k_lat_array[i].reveal_to(player_id))
+            print_ln_to(player_id, "%s", k_id_array[i].reveal_to(player_id))
+
     start_timer(1)
-    @for_range(silo)
-    def _(i):
-        for j in range(volume):
-            distance = (data_lng[i][j] - q_lng).square() + (data_lat[i][j] - q_lat).square()
-            max_k = cint(0)
-            for kk in range(1, k):
-                t = (k_distance_array[max_k] < k_distance_array[kk]).if_else(1, 0)
-
-                @if_(t.reveal() == 1)
-                def _():
-                    max_k.update(kk)
-            t = (distance < k_distance_array[max_k]).if_else(1, 0)
-
-            @if_(t.reveal() == 1)
-            def _():
-                k_player_array[max_k] = i
-                k_id_array[max_k] = data_id[i][j]
-                k_distance_array[max_k] = distance
-                k_lng_array[max_k] = data_lng[i][j]
-                k_lat_array[max_k] = data_lat[i][j]
-
-    # 输出结果
-    @for_range(k)
-    def _(i):
-        player_id = k_player_array[i] + 1
-        # print_ln_to(player_id, "%s %s %s", k_id_array[i].reveal_to(player_id),
-        #             k_lng_array[i].reveal_to(player_id), k_lat_array[i].reveal_to(player_id))
-        print_ln_to(player_id, "%s", k_id_array[i].reveal_to(player_id))
-
+    main()
     stop_timer(1)
 
 compiler.compile_func()
