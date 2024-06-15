@@ -1,14 +1,20 @@
+import logging
 import os
 import shutil
+import sys
 from datetime import datetime
-import logging
+
+import range_query
+import secret_sum
+import knn
+
+sys.path.append('dependency/MP-SPDZ')
 
 port = 11111
-# protocol = 'shamir'
-protocol = 'semi-ecdsa'
+
 host = 'localhost'
-n_clients = 4
-base_path = '../../'
+
+base_path = './'
 
 fh = logging.FileHandler(base_path + 'main.log')
 ch = logging.StreamHandler()
@@ -19,12 +25,8 @@ logging.basicConfig(level=logging.DEBUG, handlers=[fh, ch])
 logger = logging.getLogger(__name__)
 
 input_path = base_path + 'input/Player'
-
 output_path = base_path + 'output/Player'
 
-program_name = 'range_query'
-# program_name = 'range_counting'
-# program_name = 'knn'
 network_config = base_path + 'config/range-query-network.txt'
 data_length = 1
 
@@ -32,11 +34,11 @@ q_lng = 114.181114
 q_lat = 22.3460861
 # q_lng = 0
 # q_lat = 0
-def write_data_to_player0():
+def write_query_data_to_player0():
     with open(input_path + '0/Input-P0-0', 'w') as outfile:
         outfile.write(str(q_lng) + ' ' + str(q_lat))
 
-write_data_to_player0()
+write_query_data_to_player0()
 
 import subprocess, shlex
 from Compiler.compilerLib import Compiler
@@ -46,148 +48,24 @@ compiler = Compiler()
 compiler.parser.add_option('--volume', dest='volume')
 compiler.parser.add_option('--radius', default=0,  dest='radius')
 compiler.parser.add_option('--k', default=0, dest='k')
+compiler.parser.add_option('--n_clients', default=2, dest='n_clients')
+compiler.parser.add_option('--program_name', default='knn', dest='program_name')
+compiler.parser.add_option('--protocol', default='shamir', dest='protocol')
 compiler.parse_args()
 
 
-@compiler.register_function('range_query')
-def range_query():
+n_clients = int(compiler.options.n_clients)
+program_name = compiler.options.program_name
+# program_name = 'range_counting'
+# program_name = 'knn'
+protocol = compiler.options.protocol
+# protocol = 'shamir'
+# protocol = 'semi-ecdsa'
 
-    from Compiler.types import sint, regint, Array, MemValue, sfix, cint
-    from Compiler.library import print_ln, print_ln_to, do_while, for_range, if_
 
-    # 设置定点数精度
-    sfix.set_precision(32, 64)
-
-    # 设置参与方数量和每方数据量, 0为查询方,1->silo为数据拥有方, radius为明文的查询半径
-    volume = int(compiler.options.volume)
-
-    radius = float(compiler.options.radius)
-    distance = radius * radius
-
-    def main():
-        q_lng = sfix.get_input_from(0)
-        q_lat = sfix.get_input_from(0)
-
-        def game_loop(_=None):
-            def type_run():
-                id = sint.get_input_from(1)
-                lng = sfix.get_input_from(1)
-                lat = sfix.get_input_from(1)
-                acc = sint(0)
-                acc += (lng - q_lng).square()
-                acc += (lat - q_lat).square()
-                acc -= distance
-                inside = (acc < 0)
-
-                @if_(inside.reveal())
-                def _():
-                    # print_ln("%s", id.reveal())
-                    if data_length == 3:
-                        print_ln_to(1, "%s %s %s", id.reveal_to(1), lng.reveal_to(1), lat.reveal_to(1))
-                    else:
-                        print_ln_to(1, "%s", id.reveal_to(1))
-
-            type_run()
-            return True
-
-        logger.info('run %d volume' % volume)
-        for_range(volume)(game_loop)
-
-    main()
-
-compiler.compile_func()
-
-@compiler.register_function('secret_sum')
-def secret_sum():
-    silo = n_clients
-
-    from Compiler.library import print_ln, for_range, if_, print_ln_to, start_timer, stop_timer
-    from Compiler.types import sfix, sfix, cint, regint, Array, sint, Matrix
-    # 设置定点数精度
-    start_timer(1)
-
-    count = sint.Array(silo - 1)
-    @for_range(silo - 1)
-    def _(i):
-        count[i] = sint.get_input_from(i + 1)
-
-    # 输出结果
-    print_ln_to(0, "%s", sum(count[i] for i in range(silo - 1)).reveal_to(0))
-    stop_timer(1)
-
-compiler.compile_func()
-
-@compiler.register_function('knn')
-def knn():
-    MAX_DISTANCE = 9999
-    # 设置参与方数量和每方数据量, 0为查询方,1->silo为数据拥有方, k为kNN的参数
-    silo = n_clients - 1
-    volume = int(compiler.options.volume)
-    k = int(compiler.options.k)
-
-    from Compiler.library import print_ln, for_range, if_, print_ln_to, start_timer, stop_timer
-    from Compiler.types import sfix, sfix, cint, regint, Array, sint, Matrix
-    # 设置定点数精度
-    sfix.set_precision(16, 32)
-
-    def main():
-        # 查询方0输入查询数据
-        q_lng = sfix.get_input_from(0)
-        q_lat = sfix.get_input_from(0)
-        k_player_array = cint.Array(k)
-        k_id_array = sint.Array(k)
-        k_lng_array = sint.Array(k)
-        k_lat_array = sint.Array(k)
-
-        k_distance_array = sfix.Array(k)
-        k_distance_array.assign_all(MAX_DISTANCE)
-
-        import math
-
-        def game_loop(_=None):
-            def type_run():
-                @for_range(silo - 1)
-                def _(i):
-                    id = sint.get_input_from(i + 1)
-                    lng = sfix.get_input_from(i + 1)
-                    lat = sfix.get_input_from(i + 1)
-                    distance = (lng - q_lng).square() + (lat - q_lat).square()
-                    max_k = cint(0)
-                    for kk in range(1, k):
-                        t = (k_distance_array[max_k] < k_distance_array[kk]).if_else(1, 0)
-
-                        @if_(t.reveal() == 1)
-                        def _():
-                            max_k.update(kk)
-                    t = (distance < k_distance_array[max_k]).if_else(1, 0)
-
-                    @if_(t.reveal() == 1)
-                    def _():
-                        k_player_array[max_k] = i
-                        k_id_array[max_k] = id
-                        k_distance_array[max_k] = distance
-                        k_lng_array[max_k] = lng
-                        k_lat_array[max_k] = lat
-            type_run()
-            return True
-
-        logger.info('run %d volume' % volume)
-        for_range(volume)(game_loop)
-
-        @for_range(k)
-        def _(i):
-            player_id = k_player_array[i] + 1
-            if data_length == 3:
-                print_ln_to(player_id, "%s %s %s", k_id_array[i].reveal_to(player_id),
-                            k_lng_array[i].reveal_to(player_id), k_lat_array[i].reveal_to(player_id))
-            else:
-                print_ln_to(player_id, "%s", k_id_array[i].reveal_to(player_id))
-
-    start_timer(1)
-    main()
-    stop_timer(1)
-
-compiler.compile_func()
+range_query.compile_range_query(compiler, data_length)
+secret_sum.compile_secret_sum(compiler)
+knn.compile_knn(compiler, data_length)
 
 import threading
 
@@ -302,7 +180,7 @@ if __name__ == '__main__':
 
     end_time = datetime.now()
     execution_time = end_time - start_time
-    milliseconds = int(execution_time.microseconds / 1000)
-    seconds = round(execution_time.microseconds / 1000000, 2)
+    milliseconds = execution_time.seconds * 1000 + int(execution_time.microseconds / 1000)
+    seconds = execution_time.seconds + round(execution_time.microseconds / 1000000, 2)
 
     logger.info(f"Execution time: Seconds {seconds}s, Milliseconds {milliseconds} ms")

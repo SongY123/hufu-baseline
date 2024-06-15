@@ -194,3 +194,7 @@ input/
 
 # output
 output/
+
+# compiled files
+Programs
+Player-Data

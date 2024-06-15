@@ -1,10 +1,6 @@
 stop() {
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    sudo pfctl -F all
-  else
-    sudo iptables -D INPUT -p tcp --dport $1
-    sudo iptables -D OUTPUT -p tcp --sport $1
-  fi
+  sudo iptables -D INPUT -p tcp --dport $1
+  sudo iptables -D OUTPUT -p tcp --sport $1
 }
 
 if [ ! -n "$1" ];then

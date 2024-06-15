@@ -1,11 +1,7 @@
 start() {
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    echo "block drop in proto tcp from any to any port $1" | sudo pfctl -ef -
-    echo "block drop out proto tcp from any to any port $1" | sudo pfctl -ef -
-  else
-    sudo iptables -I INPUT -p tcp --dport $1
-    sudo iptables -I OUTPUT -p tcp --sport $1
-  fi
+
+  sudo iptables -I INPUT -p tcp --dport $1
+  sudo iptables -I OUTPUT -p tcp --sport $1
 }
 
 if [ ! -n "$1" ];then
