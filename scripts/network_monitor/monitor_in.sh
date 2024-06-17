@@ -2,4 +2,4 @@
 
 set -ex
 
-iptables -nvt filter -L INPUT
+iptables -nvt filter -L INPUT | grep $1

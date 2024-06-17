@@ -198,3 +198,5 @@ output/
 # compiled files
 Programs
 Player-Data
+/scripts/fed-run.sh
+/data/demo/
